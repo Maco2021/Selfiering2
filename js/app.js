@@ -3,7 +3,7 @@
 $(function () {
   let header = $("#header");
   let intro = $("#intro");
-  introHeight = intro.innerHeight();
+  let introHeight = intro.innerHeight();
   let scrollPos = $(window).scrollTop();
   checkscroll(scrollPos, introHeight);
   $(window).on("scroll resize", function () {
@@ -20,22 +20,24 @@ $(function () {
     }
   }
 
+  let nav = $("#nav");
+
   /*Smooth scroll*/
   $("[data-scroll]").on("click", function (event) {
     event.preventDefault();
     let elementId = $(this).data("scroll");
     let elementOffset = $(elementId).offset().top;
+    let scrollGap = $(window).width() < 768 ? 56 : 70;
     nav.removeClass("show");
     $("html, body").animate(
       {
-        scrollTop: elementOffset - 70,
+        scrollTop: elementOffset - scrollGap,
       },
       700
     );
   });
 
   /*Nav Toggle*/
-  let nav = $("#nav");
   let navToggle = $("#navToggle");
   navToggle.on("click", function (event) {
     event.preventDefault();
@@ -49,9 +51,6 @@ $(function () {
   });
   $(".gotobtn").click(function () {
     $("html, body").animate({ scrollTop: 0 }, 800);
-  });
-  $(document).ready(function () {
-    $(".slide").slick({});
   });
 
   $(document).ready(function () {
