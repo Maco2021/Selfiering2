@@ -525,24 +525,35 @@
             <img style="width: 200px" src="./img/fblock/cu.webp" alt="img" />
           </h1>
         </div>
-        <form class="contact-form" action="index.html" method="post">
+        <form class="contact-form" id="contactForm" novalidate>
           <input
             type="text"
+            id="cf-name"
+            name="from_name"
             class="contact-form-text"
             placeholder="Your name"
+            required
           />
           <input
             type="email"
+            id="cf-email"
+            name="from_email"
             class="contact-form-text"
             placeholder="Your email"
+            required
           />
           <textarea
+            id="cf-message"
+            name="message"
             class="contact-form-text"
             placeholder="Your message"
+            required
           ></textarea>
+          <div id="cf-status" class="cf-status" aria-live="polite"></div>
           <input
             type="submit"
             value=""
+            id="cf-submit"
             class="contact-form-btn"
             style="
               transition: opacity 0.2s linear;
@@ -591,6 +602,60 @@
       src="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.min.js"
       type="text/javascript"
     ></script>
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <script src="js/app.js"></script>
+    <script>
+      // ─── EmailJS config ────────────────────────────────────────────────────
+      var EMAILJS_PUBLIC_KEY  = "9NfFqNnna_yJCCikC";
+      var EMAILJS_SERVICE_ID  = "service_zbye4dn";
+      var EMAILJS_TEMPLATE_ID = "template_c622k6h";
+      // ───────────────────────────────────────────────────────────────────────
+
+      emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+
+      document.getElementById("contactForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        var form     = this;
+        var btn      = document.getElementById("cf-submit");
+        var status   = document.getElementById("cf-status");
+
+        // Basic client-side validation
+        var name    = document.getElementById("cf-name").value.trim();
+        var email   = document.getElementById("cf-email").value.trim();
+        var message = document.getElementById("cf-message").value.trim();
+
+        if (!name || !email || !message) {
+          showStatus("Please fill in all fields.", "error");
+          return;
+        }
+
+        // Disable button while sending
+        btn.disabled = true;
+        btn.style.opacity = "0.4";
+        showStatus("Sending…", "info");
+
+        emailjs.sendForm(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, form)
+          .then(function () {
+            showStatus("Message sent! We'll get back to you soon. ✓", "success");
+            form.reset();
+          })
+          .catch(function (err) {
+            console.error("EmailJS error:", err);
+            showStatus("Something went wrong. Please try again.", "error");
+          })
+          .finally(function () {
+            btn.disabled = false;
+            btn.style.opacity = "0.75";
+          });
+      });
+
+      function showStatus(msg, type) {
+        var el = document.getElementById("cf-status");
+        el.textContent = msg;
+        el.className = "cf-status cf-status--" + type;
+      }
+    </script>
   </body>
 </html>

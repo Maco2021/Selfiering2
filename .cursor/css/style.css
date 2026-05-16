@@ -947,189 +947,182 @@ img:hover {
   margin: 32px;
 }
 
-/* Hexagon */
+/* ═══════════════════════════════════════════════════════════════
+   Hexagon Clients — original 7-item honeycomb, fluid + enhanced.
+   HTML is untouched. One set of custom properties drives all
+   geometry. Gap ratio (cell ÷ shape = 1.15) is constant at every
+   breakpoint so spacing always looks identical.
+   ═══════════════════════════════════════════════════════════════
 
-.lab_item {
-  width: 230px;
-  height: 260px;
+   Geometry reference (desktop):
+     --hex-w  230px   cell width  (inline-block slot)
+     --hex-h  260px   cell height
+     --hex-sz 200px   hexagon shape width  (hex-w / 1.15)
+     --hex-sh 400px   hexagon shape height (hex-sz × 2)
+     --hex-t  -70px   shape top offset     = -(hex-sh - hex-h) / 2
+     --row-ol -55px   row-2 negative margin-top
+*/
+
+#lab {
+  width: 100%;
+  overflow: hidden;
+  padding-bottom: 3em;
+}
+
+/* ── Section header image ── */
+#lab .sectionheader {
+  text-align: center;
+}
+#lab .sectionheader img {
+  max-width: min(340px, 80vw);
+  height: auto;
+}
+
+#lab article {
+  /* Desktop values */
+  --hex-w:  230px;
+  --hex-h:  260px;
+  --hex-sz: 200px;
+  --hex-sh: 400px;
+  --hex-t:  -70px;
+  --row-ol: -55px;
+
+  padding-top: 5em;
+  padding-bottom: 2em;
+  margin: 0 auto;
+  width: 100%;
+  max-width: calc(var(--hex-w) * 4);
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Cell ── */
+.lab_item,
+.lab_item2 {
+  width:    var(--hex-w);
+  height:   var(--hex-h);
   position: relative;
-  display: inline-block;
+  display:  inline-block;
 }
 
-@media (max-width: 360px) {
-  .lab_item {
-    display: inline-block;
-    width: auto;
-    height: 280px;
-  }
+/* ── Row-2 overlap: lab_item2 + the 3 items after it ── */
+.lab_item2,
+.lab_item2 ~ .lab_item {
+  margin-top: var(--row-ol);
 }
 
+/* ── The rotated hexagon shape ── */
 .hexagon2 {
   position: absolute;
-  width: 200px;
-  height: 400px;
-  top: -85px;
+  width:  var(--hex-sz);
+  height: var(--hex-sh);
+  top:    var(--hex-t);
+  /* Centre horizontally inside the cell */
+  left: calc((var(--hex-w) - var(--hex-sz)) / 2);
 }
 
 .hexagon {
-  overflow: hidden;
+  overflow:   hidden;
   visibility: hidden;
+  transform:  rotate(120deg);
+  cursor:     pointer;
+  width:  100%;
+  height: 100%;
+  /* Smooth scale on hover */
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
-  -webkit-transform: rotate(120deg);
-  -moz-transform: rotate(120deg);
-  -o-transform: rotate(120deg);
-  -ms-transform: rotate(120deg);
-  transform: rotate(120deg);
-  cursor: pointer;
+.hexagon:hover {
+  transform: rotate(120deg) scale(1.08);
 }
 
 .hexagon-in1 {
   overflow: hidden;
-  width: 100%;
+  width:  100%;
   height: 100%;
-
-  -webkit-transform: rotate(-60deg);
-  -moz-transform: rotate(-60deg);
-  -o-transform: rotate(-60deg);
-  -ms-transform: rotate(-60deg);
   transform: rotate(-60deg);
 }
 
 .hexagon-in2 {
-  -webkit-box-shadow: inset 0 0 0 200px rgba(176, 218, 212, 0.48);
-  box-shadow: inset 0 0 0 200px rgba(176, 218, 212, 0.48);
-  overflow: hidden;
-  width: 100%;
-  height: 100%;
-  background-repeat: no-repeat;
+  /* Teal overlay — removed on hover to "open" the hex */
+  box-shadow:          inset 0 0 0 200px rgba(176, 218, 212, 0.48);
+  overflow:            hidden;
+  width:               100%;
+  height:              100%;
+  background-repeat:   no-repeat;
   background-position: 50%;
-
-  -webkit-background-size: 125%;
-  -moz-background-size: 125%;
-  background-size: 125%;
-  visibility: visible;
-
-  -webkit-transform: rotate(-60deg);
-  -moz-transform: rotate(-60deg);
-  -o-transform: rotate(-60deg);
-  -ms-transform: rotate(-60deg);
-  transform: rotate(-60deg);
-
-  -webkit-transition: all 0.5s ease;
-  -moz-transition: all 0.5s ease;
-  -o-transition: all 0.5s ease;
-  -ms-transition: all 0.5s ease;
-  transition: all 0.5s ease;
+  background-size:     130%;
+  visibility:          visible;
+  transform:           rotate(-60deg);
+  transition:          box-shadow 0.45s ease,
+                       background-size 0.45s ease;
 }
 
-.hexagon-in2:hover {
-  -webkit-box-shadow: inset 0 0 0 0px #ce690b;
+/* Opening effect: overlay fades out, image zooms in slightly */
+.hexagon:hover .hexagon-in2 {
+  box-shadow:      inset 0 0 0 0 rgba(176, 218, 212, 0);
+  background-size: 145%;
 }
 
-#lab article {
-  padding-top: 6em;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 820px;
-  box-sizing: border-box;
-}
-@media (max-width: 820px) {
+/* ══════════════════════════════════════════════════════════════
+   RESPONSIVE — only custom-property values change.
+   Gap ratio stays constant: hex-sz = hex-w × 0.87 always.
+   row-ol is derived from the hex geometry (≈ hex-h × 0.21).
+   ══════════════════════════════════════════════════════════════ */
+
+/* ≤ 900px  tablet landscape */
+@media (max-width: 900px) {
   #lab article {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-}
-.lab_item:nth-child(7n-2) {
-  margin-left: 101px;
-}
-
-.lab_item:nth-child(n + 5) {
-  margin-top: -55px;
-}
-
-@media (max-width: 1015px) {
-  #lab {
-    width: 100%;
+    --hex-w:  175px;
+    --hex-h:  198px;
+    --hex-sz: 152px;
+    --hex-sh: 304px;
+    --hex-t:  -53px;
+    --row-ol: -42px;
+    max-width: calc(var(--hex-w) * 4);
   }
 }
 
-@media (max-width: 820px) {
-  .lab_item:nth-child(5n-1) {
-    margin-left: 102px;
-  }
-
-  .lab_item:nth-child(n + 4) {
-    margin-top: -62px;
-  }
-
-  .lab_item:nth-child(7n-2) {
-    margin-left: 0px;
-  }
-
-  .lab_item:nth-child(n + 5) {
-    margin-top: -56px;
-  }
-
-  #lab article {
-    width: 610px;
-  }
-}
-
+/* ≤ 640px  tablet portrait */
 @media (max-width: 640px) {
   #lab article {
-    width: 405px;
-  }
-
-  .lab_item:nth-child(5n-1) {
-    margin-left: 0px;
-  }
-
-  .lab_item:nth-child(3n) {
-    margin-left: 102px;
-  }
-
-  .lab_item:nth-child(n + 3) {
-    margin-top: -56px;
+    --hex-w:  138px;
+    --hex-h:  156px;
+    --hex-sz: 120px;
+    --hex-sh: 240px;
+    --hex-t:  -42px;
+    --row-ol: -33px;
+    max-width: calc(var(--hex-w) * 4);
   }
 }
 
-@media (max-width: 450px) {
+/* ≤ 480px  large phone */
+@media (max-width: 480px) {
   #lab article {
-    width: 300px;
-  }
-
-  .lab_item:nth-child(3n) {
-    margin-left: 0px;
-  }
-
-  .lab_item:nth-child(2n) {
-    margin-left: 102px;
-  }
-
-  .lab_item:nth-child(n + 2) {
-    margin-top: -56px;
+    --hex-w:  108px;
+    --hex-h:  122px;
+    --hex-sz: 94px;
+    --hex-sh: 188px;
+    --hex-t:  -33px;
+    --row-ol: -26px;
+    max-width: calc(var(--hex-w) * 4);
   }
 }
 
-@media (max-width: 364px) {
+/* ≤ 360px  small phone */
+@media (max-width: 360px) {
   #lab article {
-    width: 100%;
-    max-width: min(360px, 100vw - 24px);
-    padding-left: 8px;
-    padding-right: 8px;
-  }
-
-  .lab_item:nth-child(3n) {
-    margin-left: 0px;
-  }
-
-  .lab_item:nth-child(2n) {
-    margin-left: 52px;
-  }
-
-  .lab_item:nth-child(n + 2) {
-    margin-top: -54px;
+    --hex-w:  86px;
+    --hex-h:  97px;
+    --hex-sz: 75px;
+    --hex-sh: 150px;
+    --hex-t:  -27px;
+    --row-ol: -20px;
+    max-width: 100%;
+    padding-left:  6px;
+    padding-right: 6px;
   }
 }
 
@@ -1705,4 +1698,29 @@ video {
     right: -350px;
     padding: 0 190px;
   }
+}
+
+/* Contact form status message */
+.cf-status {
+  min-height: 24px;
+  margin: 8px 0;
+  padding: 0 4px;
+  font-size: 14px;
+  text-align: center;
+  border-radius: 6px;
+  transition: opacity 0.3s;
+}
+
+.cf-status--info {
+  color: #aaa;
+}
+
+.cf-status--success {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.cf-status--error {
+  color: #e84545;
+  font-weight: 600;
 }
