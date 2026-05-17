@@ -526,6 +526,19 @@
           </h1>
         </div>
         <form class="contact-form" id="contactForm" novalidate>
+          <!-- Honeypot: hidden from real users, bots fill it in -->
+          <input
+            type="text"
+            id="cf-honeypot"
+            name="honeypot"
+            tabindex="-1"
+            autocomplete="off"
+            aria-hidden="true"
+            style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;"
+          />
+          <!-- CSRF token: generated on page load, validated on submit -->
+          <input type="hidden" id="cf-csrf" name="csrf_token" />
+
           <input
             type="text"
             id="cf-name"
@@ -614,24 +627,89 @@
 
       emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
 
+      // ─── CSRF token ────────────────────────────────────────────────────────
+      // Generate a random token on page load and store it in sessionStorage.
+      // On submit we verify the hidden field value matches what we stored,
+      // ensuring the form was rendered by this page in this session.
+      (function initCsrfToken() {
+        var token = sessionStorage.getItem("csrf_token");
+        if (!token) {
+          // crypto.getRandomValues is available in all modern browsers
+          var arr = new Uint8Array(24);
+          window.crypto.getRandomValues(arr);
+          token = Array.from(arr, function(b) {
+            return ("0" + b.toString(16)).slice(-2);
+          }).join("");
+          sessionStorage.setItem("csrf_token", token);
+        }
+        document.getElementById("cf-csrf").value = token;
+      })();
+
+      // ─── Rate-limit state ──────────────────────────────────────────────────
+      var _lastSubmitTime = 0;
+      var RATE_LIMIT_MS   = 30000; // 30 s between submissions
+
+      // ─── Input sanitizer ──────────────────────────────────────────────────
+      function sanitize(str) {
+        // Strip HTML tags and trim whitespace
+        return str.replace(/<[^>]*>/g, "").trim();
+      }
+
+      // ─── Form submit handler ───────────────────────────────────────────────
       document.getElementById("contactForm").addEventListener("submit", function (e) {
         e.preventDefault();
 
-        var form     = this;
-        var btn      = document.getElementById("cf-submit");
-        var status   = document.getElementById("cf-status");
+        var form = this;
+        var btn  = document.getElementById("cf-submit");
 
-        // Basic client-side validation
-        var name    = document.getElementById("cf-name").value.trim();
-        var email   = document.getElementById("cf-email").value.trim();
-        var message = document.getElementById("cf-message").value.trim();
+        // 1. Honeypot check — bots fill this hidden field; humans don't
+        var honeypot = document.getElementById("cf-honeypot").value;
+        if (honeypot !== "") {
+          // Silently reject; don't reveal the check to the bot
+          showStatus("Message sent! We'll get back to you soon. ✓", "success");
+          form.reset();
+          return;
+        }
+
+        // 2. CSRF token check — field value must match what we stored in sessionStorage
+        var storedToken  = sessionStorage.getItem("csrf_token");
+        var submittedToken = document.getElementById("cf-csrf").value;
+        if (!storedToken || submittedToken !== storedToken) {
+          showStatus("Security check failed. Please refresh the page and try again.", "error");
+          return;
+        }
+
+        // 3. Rate limiting — prevent rapid repeated submissions
+        var now = Date.now();
+        if (now - _lastSubmitTime < RATE_LIMIT_MS) {
+          var wait = Math.ceil((RATE_LIMIT_MS - (now - _lastSubmitTime)) / 1000);
+          showStatus("Please wait " + wait + " seconds before sending another message.", "error");
+          return;
+        }
+
+        // 4. Sanitize and validate inputs
+        var name    = sanitize(document.getElementById("cf-name").value);
+        var email   = sanitize(document.getElementById("cf-email").value);
+        var message = sanitize(document.getElementById("cf-message").value);
 
         if (!name || !email || !message) {
           showStatus("Please fill in all fields.", "error");
           return;
         }
 
-        // Disable button while sending
+        // Basic email format check
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          showStatus("Please enter a valid email address.", "error");
+          return;
+        }
+
+        // Write sanitized values back so EmailJS picks them up cleanly
+        document.getElementById("cf-name").value    = name;
+        document.getElementById("cf-email").value   = email;
+        document.getElementById("cf-message").value = message;
+
+        // 5. Send
+        _lastSubmitTime = now;
         btn.disabled = true;
         btn.style.opacity = "0.4";
         showStatus("Sending…", "info");
@@ -640,6 +718,15 @@
           .then(function () {
             showStatus("Message sent! We'll get back to you soon. ✓", "success");
             form.reset();
+            // Rotate the CSRF token after a successful send
+            sessionStorage.removeItem("csrf_token");
+            var arr = new Uint8Array(24);
+            window.crypto.getRandomValues(arr);
+            var newToken = Array.from(arr, function(b) {
+              return ("0" + b.toString(16)).slice(-2);
+            }).join("");
+            sessionStorage.setItem("csrf_token", newToken);
+            document.getElementById("cf-csrf").value = newToken;
           })
           .catch(function (err) {
             console.error("EmailJS error:", err);
