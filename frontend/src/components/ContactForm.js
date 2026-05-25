@@ -49,14 +49,38 @@ function StatusMessage({ msg, type }) {
 }
 
 function SocialFooter() {
+  // Robustly open external links even when the page is loaded inside a
+  // sandboxed preview iframe (where plain target="_blank" anchors are
+  // silently blocked). Order of attempts:
+  //   1. window.open new tab (works in production / unsandboxed)
+  //   2. parent/top window navigation (escapes the preview iframe)
+  //   3. current-window navigation (last resort)
+  const openExternal = (url) => (e) => {
+    e.preventDefault();
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (win) return;
+    try {
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = url;
+        return;
+      }
+    } catch (err) {
+      // Cross-origin top access blocked — fall through to self-navigation
+    }
+    window.location.href = url;
+  };
+
+  const INSTAGRAM_URL = "https://www.instagram.com/cabinafotoring/";
+
   return (
     <div className="copyright">
       <div className="container">
         <div className="s4">
           <a
-            href="https://www.instagram.com/cabinafotoring/"
+            href={INSTAGRAM_URL}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={openExternal(INSTAGRAM_URL)}
             style={{ color: "#7b310d" }}
             className="iconbtn fab fa-instagram"
             data-testid="social-instagram"
