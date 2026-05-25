@@ -1,14 +1,25 @@
 import React, { useEffect, useState } from "react";
 
 const NAV_ITEMS = [
-  { href: "#photo", img: "/img/fblock/pg.webp" },
-  { href: "#video", img: "/img/fblock/vg.webp" },
-  { href: "#albume", img: "/img/fblock/al.webp" },
-  { href: "#recenzii", img: "/img/fblock/nn.webp" },
-  { href: "#contacte", img: "/img/fblock/co.webp" },
+  { id: "photo", href: "#photo", img: "/img/fblock/pg.webp" },
+  { id: "video", href: "#video", img: "/img/fblock/vg.webp" },
+  { id: "albume", href: "#albume", img: "/img/fblock/al.webp" },
+  { id: "recenzii", href: "#recenzii", img: "/img/fblock/nn.webp" },
+  { id: "contacte", href: "#contacte", img: "/img/fblock/co.webp" },
 ];
 
-const LETTERS = ["S", "E", "L", "F", "I", "E", "R", "I", "N", "G"];
+const LETTERS = [
+  { ch: "S", size: 40 },
+  { ch: "E", size: 30 },
+  { ch: "L", size: 30 },
+  { ch: "F", size: 30 },
+  { ch: "I", size: 30 },
+  { ch: "E", size: 30 },
+  { ch: "R", size: 40 },
+  { ch: "I", size: 40 },
+  { ch: "N", size: 40 },
+  { ch: "G", size: 40 },
+];
 
 function smoothScrollTo(targetId) {
   const el = document.querySelector(targetId);
@@ -18,24 +29,52 @@ function smoothScrollTo(targetId) {
   window.scrollTo({ top, behavior: "smooth" });
 }
 
-export default function Header() {
+function useFixedOnScroll() {
   const [fixed, setFixed] = useState(false);
-  const [navOpen, setNavOpen] = useState(false);
-
   useEffect(() => {
-    const onScroll = () => {
+    const handler = () => {
       const intro = document.getElementById("intro");
       const introHeight = intro ? intro.offsetHeight : 600;
       setFixed(window.scrollY > introHeight);
     };
-    onScroll();
-    window.addEventListener("scroll", onScroll);
-    window.addEventListener("resize", onScroll);
+    handler();
+    window.addEventListener("scroll", handler);
+    window.addEventListener("resize", handler);
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("scroll", handler);
+      window.removeEventListener("resize", handler);
     };
   }, []);
+  return fixed;
+}
+
+function Logo({ onClick }) {
+  return (
+    <div
+      className="header__logo"
+      data-testid="header-logo"
+      onClick={onClick}
+      style={{ cursor: "pointer" }}
+    >
+      <div>
+        <h2>
+          {LETTERS.map((l, i) => (
+            <span
+              key={`${l.ch}-${i}`}
+              style={{ "--i": i + 1, fontSize: l.size }}
+            >
+              {l.ch}
+            </span>
+          ))}
+        </h2>
+      </div>
+    </div>
+  );
+}
+
+export default function Header() {
+  const fixed = useFixedOnScroll();
+  const [navOpen, setNavOpen] = useState(false);
 
   const onLinkClick = (e, href) => {
     e.preventDefault();
@@ -51,29 +90,7 @@ export default function Header() {
     >
       <div className="container">
         <div className="header__inner">
-          <div
-            className="header__logo"
-            data-testid="header-logo"
-            onClick={(e) => onLinkClick(e, "#intro")}
-            style={{ cursor: "pointer" }}
-          >
-            <div>
-              <h2>
-                {LETTERS.map((ch, i) => {
-                  const idx = i + 1;
-                  const isEdge = idx === 1 || idx >= 7;
-                  return (
-                    <span
-                      key={i}
-                      style={{ "--i": idx, fontSize: isEdge ? 40 : 30 }}
-                    >
-                      {ch}
-                    </span>
-                  );
-                })}
-              </h2>
-            </div>
-          </div>
+          <Logo onClick={(e) => onLinkClick(e, "#intro")} />
 
           <nav
             className={`nav${navOpen ? " show" : ""}`}
@@ -82,13 +99,13 @@ export default function Header() {
           >
             {NAV_ITEMS.map((item) => (
               <a
-                key={item.href}
+                key={item.id}
                 className="nav__link"
                 href={item.href}
-                data-testid={`nav-link-${item.href.slice(1)}`}
+                data-testid={`nav-link-${item.id}`}
                 onClick={(e) => onLinkClick(e, item.href)}
               >
-                <img src={item.img} alt="nav" />
+                <img src={item.img} alt={item.id} />
               </a>
             ))}
           </nav>

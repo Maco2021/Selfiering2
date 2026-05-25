@@ -5,16 +5,22 @@ const SLIDES = Array.from({ length: 16 }, (_, i) =>
 );
 
 export default function Album() {
-  // Duplicate for seamless marquee
-  const all = [...SLIDES, ...SLIDES];
+  // Duplicate the slides for a seamless marquee; key includes a copy index
+  // so React still has stable, unique keys across the two passes.
+  const tracks = [
+    { copy: "a", slides: SLIDES },
+    { copy: "b", slides: SLIDES },
+  ];
   return (
     <div className="slider" id="albume" data-testid="album-section">
       <div className="slide-track">
-        {all.map((src, idx) => (
-          <div className="slide" key={idx}>
-            <img src={src} alt="#" />
-          </div>
-        ))}
+        {tracks.flatMap(({ copy, slides }) =>
+          slides.map((src) => (
+            <div className="slide" key={`${copy}-${src}`}>
+              <img src={src} alt="#" />
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

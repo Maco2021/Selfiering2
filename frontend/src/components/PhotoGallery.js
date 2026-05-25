@@ -12,86 +12,112 @@ const IMAGES = [
   "/img/fotoblock/09.webp",
 ];
 
-export default function PhotoGallery() {
-  const wrapperRef = useRef(null);
+const INTERVAL_MS = 5000;
+const LEAVE_MS = 300;
+const BACK_MS = 700;
 
+function getCards(wrapper) {
+  return Array.from(wrapper.querySelectorAll(".card"));
+}
+
+function initCards(wrapper) {
+  const cards = getCards(wrapper);
+  if (cards.length === 0) return;
+  cards[cards.length - 1].classList.add("active");
+  if (cards.length >= 2) cards[cards.length - 2].classList.add("next");
+}
+
+function setPointerEvents(wrapper, value) {
+  getCards(wrapper).forEach((c) => (c.style.pointerEvents = value));
+}
+
+function promoteNext(wrapper, active, next) {
+  active.classList.add("animate-leave");
+  active.classList.remove("active");
+  next.classList.add("active");
+  next.classList.remove("next");
+
+  const remaining = getCards(wrapper);
+  const newNextIdx = remaining.length >= 3 ? remaining.length - 3 : remaining.length - 2;
+  if (newNextIdx >= 0) remaining[newNextIdx].classList.add("next");
+}
+
+function recycleLeavingCard(wrapper) {
+  const leaving = wrapper.querySelector(".card.animate-leave");
+  if (!leaving) return;
+  leaving.classList.add("animate-back");
+  leaving.classList.remove("animate-leave");
+  wrapper.insertBefore(leaving, wrapper.firstChild);
+}
+
+function clearAnimationClasses(wrapper) {
+  const back = wrapper.querySelector(".card.animate-back");
+  if (back) back.classList.remove("animate-back");
+}
+
+function PhotoCard({ src, isLeft, testId }) {
+  return (
+    <div
+      className={`card ${isLeft ? "left-card" : "right-card"}`}
+      data-testid={testId}
+    >
+      <div className="card-bg">
+        <div className="card-img">
+          <img src={src} alt="#" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useCardCarousel(wrapperRef) {
   useEffect(() => {
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
 
-    const getCards = () => Array.from(wrapper.querySelectorAll(".card"));
+    initCards(wrapper);
 
-    const init = () => {
-      const cards = getCards();
-      if (cards.length === 0) return;
-      cards[cards.length - 1].classList.add("active");
-      if (cards.length >= 2) cards[cards.length - 2].classList.add("next");
-    };
-    init();
-
-    const interval = 5000;
     let timer = null;
-    let clickInProgress = false;
+    let busy = false;
 
     const advance = () => {
-      if (clickInProgress) return;
-      clickInProgress = true;
-
-      const cards = getCards();
+      if (busy) return;
       const active = wrapper.querySelector(".card.active");
       const next = wrapper.querySelector(".card.next");
-      if (!active || !next) {
-        clickInProgress = false;
-        return;
-      }
+      if (!active || !next) return;
 
-      cards.forEach((c) => (c.style.pointerEvents = "none"));
+      busy = true;
+      setPointerEvents(wrapper, "none");
+      promoteNext(wrapper, active, next);
 
-      active.classList.add("animate-leave");
-      active.classList.remove("active");
-      next.classList.add("active");
-      next.classList.remove("next");
-
-      const remaining = getCards();
-      // last - prev - prev => third from end becomes next
-      if (remaining.length >= 3) {
-        remaining[remaining.length - 3].classList.add("next");
-      } else if (remaining.length >= 2) {
-        remaining[remaining.length - 2].classList.add("next");
-      }
-
+      setTimeout(() => recycleLeavingCard(wrapper), LEAVE_MS);
       setTimeout(() => {
-        const leaving = wrapper.querySelector(".card.animate-leave");
-        if (leaving) {
-          leaving.classList.add("animate-back");
-          leaving.classList.remove("animate-leave");
-          wrapper.insertBefore(leaving, wrapper.firstChild);
-        }
-      }, 300);
-
-      setTimeout(() => {
-        const back = wrapper.querySelector(".card.animate-back");
-        if (back) back.classList.remove("animate-back");
-        getCards().forEach((c) => (c.style.pointerEvents = "auto"));
-        clickInProgress = false;
-      }, 700);
+        clearAnimationClasses(wrapper);
+        setPointerEvents(wrapper, "auto");
+        busy = false;
+      }, BACK_MS);
     };
-
-    timer = setInterval(advance, interval);
 
     const onClick = () => {
       clearInterval(timer);
       advance();
-      timer = setInterval(advance, interval);
+      timer = setInterval(advance, INTERVAL_MS);
     };
 
-    getCards().forEach((c) => c.addEventListener("click", onClick));
+    timer = setInterval(advance, INTERVAL_MS);
+    const cards = getCards(wrapper);
+    cards.forEach((c) => c.addEventListener("click", onClick));
 
     return () => {
       clearInterval(timer);
-      getCards().forEach((c) => c.removeEventListener("click", onClick));
+      cards.forEach((c) => c.removeEventListener("click", onClick));
     };
-  }, []);
+  }, [wrapperRef]);
+}
+
+export default function PhotoGallery() {
+  const wrapperRef = useRef(null);
+  useCardCarousel(wrapperRef);
 
   return (
     <div className="container" id="photo" data-testid="photo-section">
@@ -111,17 +137,12 @@ export default function PhotoGallery() {
             <div id="wrapper">
               <div className="card-wrapper" ref={wrapperRef}>
                 {IMAGES.map((src, idx) => (
-                  <div
+                  <PhotoCard
                     key={src}
-                    className={`card ${idx % 2 === 0 ? "left-card" : "right-card"}`}
-                    data-testid={`photo-card-${idx}`}
-                  >
-                    <div className="card-bg">
-                      <div className="card-img">
-                        <img src={src} alt="#" />
-                      </div>
-                    </div>
-                  </div>
+                    src={src}
+                    isLeft={idx % 2 === 0}
+                    testId={`photo-card-${idx}`}
+                  />
                 ))}
               </div>
             </div>

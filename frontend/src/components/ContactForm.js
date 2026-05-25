@@ -5,6 +5,15 @@ const EMAILJS_PUBLIC_KEY = "9NfFqNnna_yJCCikC";
 const EMAILJS_SERVICE_ID = "service_zbye4dn";
 const EMAILJS_TEMPLATE_ID = "template_c622k6h";
 const RATE_LIMIT_MS = 30000;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Initialize EmailJS once at module load (was previously inside a useEffect
+// with an empty catch that silently swallowed errors).
+try {
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+} catch (err) {
+  console.warn("EmailJS init failed:", err);
+}
 
 function generateToken() {
   const arr = new Uint8Array(24);
@@ -16,46 +25,123 @@ function sanitize(str) {
   return str.replace(/<[^>]*>/g, "").trim();
 }
 
+function validate({ name, email, message }) {
+  if (!name || !email || !message) {
+    return "Please fill in all fields.";
+  }
+  if (!EMAIL_REGEX.test(email)) {
+    return "Please enter a valid email address.";
+  }
+  return null;
+}
+
+function StatusMessage({ msg, type }) {
+  return (
+    <div
+      id="cf-status"
+      className={`cf-status ${type ? `cf-status--${type}` : ""}`}
+      aria-live="polite"
+      data-testid="contact-status"
+    >
+      {msg}
+    </div>
+  );
+}
+
+function SocialFooter() {
+  return (
+    <div className="copyright">
+      <div className="container">
+        <div className="s4">
+          <a
+            href="#"
+            style={{ color: "#7b310d" }}
+            className="iconbtn fab fa-facebook"
+            data-testid="social-facebook"
+            aria-label="Facebook"
+          />
+          <a
+            href="#"
+            style={{ color: "#7b310d" }}
+            className="iconbtn fab fa-telegram"
+            data-testid="social-telegram"
+            aria-label="Telegram"
+          />
+          <a
+            href="#"
+            style={{ color: "#7b310d" }}
+            className="iconbtn fab fa-viber"
+            data-testid="social-viber"
+            aria-label="Viber"
+          />
+        </div>
+        <div className="span__text">
+          <span style={{ color: "#000" }}>
+            Copyright © 2023 SELFIERING. All Rights Reserved SELFIERING
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ContactForm() {
   const formRef = useRef(null);
   const lastSubmitRef = useRef(0);
-  const [csrfToken, setCsrfToken] = useState("");
+  // CSRF token kept purely in-memory (was previously sessionStorage).
+  // Token is regenerated on mount and after every successful send.
+  const csrfRef = useRef(generateToken());
   const [status, setStatus] = useState({ msg: "", type: "" });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    try {
-      emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-    } catch (e) {
-      // ignore
-    }
-    let token = sessionStorage.getItem("csrf_token");
-    if (!token) {
-      token = generateToken();
-      sessionStorage.setItem("csrf_token", token);
-    }
-    setCsrfToken(token);
-  }, []);
-
   const showStatus = (msg, type) => setStatus({ msg, type });
+
+  const checkRateLimit = (now) => {
+    const delta = now - lastSubmitRef.current;
+    if (delta < RATE_LIMIT_MS) {
+      const wait = Math.ceil((RATE_LIMIT_MS - delta) / 1000);
+      showStatus(
+        `Please wait ${wait} seconds before sending another message.`,
+        "error"
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const sendEmail = (form) => {
+    setSubmitting(true);
+    showStatus("Sending…", "info");
+    emailjs
+      .sendForm(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, form)
+      .then(() => {
+        showStatus("Message sent! We'll get back to you soon. ✓", "success");
+        form.reset();
+        csrfRef.current = generateToken();
+        const csrfEl = form.querySelector("#cf-csrf");
+        if (csrfEl) csrfEl.value = csrfRef.current;
+      })
+      .catch((err) => {
+        console.error("EmailJS error:", err);
+        showStatus("Something went wrong. Please try again.", "error");
+      })
+      .finally(() => setSubmitting(false));
+  };
 
   const onSubmit = (e) => {
     e.preventDefault();
     const form = formRef.current;
     if (!form) return;
 
-    // Honeypot
-    const honeypot = form.querySelector("#cf-honeypot").value;
-    if (honeypot !== "") {
+    // Honeypot — bots fill it; humans don't.
+    if (form.querySelector("#cf-honeypot").value !== "") {
       showStatus("Message sent! We'll get back to you soon. ✓", "success");
       form.reset();
       return;
     }
 
-    // CSRF
-    const stored = sessionStorage.getItem("csrf_token");
-    const submitted = form.querySelector("#cf-csrf").value;
-    if (!stored || submitted !== stored) {
+    // CSRF — submitted field must match in-memory token from this render.
+    if (form.querySelector("#cf-csrf").value !== csrfRef.current) {
       showStatus(
         "Security check failed. Please refresh the page and try again.",
         "error"
@@ -63,18 +149,8 @@ export default function ContactForm() {
       return;
     }
 
-    // Rate limit
     const now = Date.now();
-    if (now - lastSubmitRef.current < RATE_LIMIT_MS) {
-      const wait = Math.ceil(
-        (RATE_LIMIT_MS - (now - lastSubmitRef.current)) / 1000
-      );
-      showStatus(
-        `Please wait ${wait} seconds before sending another message.`,
-        "error"
-      );
-      return;
-    }
+    if (!checkRateLimit(now)) return;
 
     const nameEl = form.querySelector("#cf-name");
     const emailEl = form.querySelector("#cf-email");
@@ -84,12 +160,9 @@ export default function ContactForm() {
     const email = sanitize(emailEl.value);
     const message = sanitize(messageEl.value);
 
-    if (!name || !email || !message) {
-      showStatus("Please fill in all fields.", "error");
-      return;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showStatus("Please enter a valid email address.", "error");
+    const error = validate({ name, email, message });
+    if (error) {
+      showStatus(error, "error");
       return;
     }
 
@@ -98,24 +171,16 @@ export default function ContactForm() {
     messageEl.value = message;
 
     lastSubmitRef.current = now;
-    setSubmitting(true);
-    showStatus("Sending…", "info");
-
-    emailjs
-      .sendForm(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, form)
-      .then(() => {
-        showStatus("Message sent! We'll get back to you soon. ✓", "success");
-        form.reset();
-        const newToken = generateToken();
-        sessionStorage.setItem("csrf_token", newToken);
-        setCsrfToken(newToken);
-      })
-      .catch((err) => {
-        console.error("EmailJS error:", err);
-        showStatus("Something went wrong. Please try again.", "error");
-      })
-      .finally(() => setSubmitting(false));
+    sendEmail(form);
   };
+
+  // Sync the hidden CSRF input with the current token on mount.
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+    const csrfEl = form.querySelector("#cf-csrf");
+    if (csrfEl) csrfEl.value = csrfRef.current;
+  }, []);
 
   return (
     <div className="container">
@@ -164,8 +229,7 @@ export default function ContactForm() {
             type="hidden"
             id="cf-csrf"
             name="csrf_token"
-            defaultValue={csrfToken}
-            key={csrfToken}
+            defaultValue={csrfRef.current}
           />
 
           <input
@@ -194,14 +258,7 @@ export default function ContactForm() {
             required
             data-testid="contact-message"
           />
-          <div
-            id="cf-status"
-            className={`cf-status ${status.type ? `cf-status--${status.type}` : ""}`}
-            aria-live="polite"
-            data-testid="contact-status"
-          >
-            {status.msg}
-          </div>
+          <StatusMessage msg={status.msg} type={status.type} />
           <input
             type="submit"
             value=""
@@ -216,36 +273,7 @@ export default function ContactForm() {
             }}
           />
           <div>
-            <div className="copyright">
-              <div className="container">
-                <div className="s4">
-                  <a
-                    href="#"
-                    style={{ color: "#7b310d" }}
-                    className="iconbtn fab fa-facebook"
-                    data-testid="social-facebook"
-                  />
-                  <a
-                    href="#"
-                    style={{ color: "#7b310d" }}
-                    className="iconbtn fab fa-telegram"
-                    data-testid="social-telegram"
-                  />
-                  <a
-                    href="#"
-                    style={{ color: "#7b310d" }}
-                    className="iconbtn fab fa-viber"
-                    data-testid="social-viber"
-                  />
-                </div>
-                <div className="span__text">
-                  <span style={{ color: "#000" }}>
-                    Copyright © 2023 SELFIERING. All Rights Reserved
-                    SELFIERING
-                  </span>
-                </div>
-              </div>
-            </div>
+            <SocialFooter />
           </div>
         </form>
       </div>

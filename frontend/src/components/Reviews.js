@@ -66,7 +66,7 @@ export default function Reviews() {
         <div className="team__inner">
           {REVIEWS.map((r, idx) => (
             <div
-              key={idx}
+              key={r.name}
               className={r.className}
               data-testid={`review-item-${idx}`}
             >
