@@ -54,11 +54,13 @@ function SocialFooter() {
       <div className="container">
         <div className="s4">
           <a
-            href="#"
+            href="https://www.instagram.com/cabinafotoring/"
+            target="_blank"
+            rel="noopener noreferrer"
             style={{ color: "#7b310d" }}
-            className="iconbtn fab fa-facebook"
-            data-testid="social-facebook"
-            aria-label="Facebook"
+            className="iconbtn fab fa-instagram"
+            data-testid="social-instagram"
+            aria-label="Instagram @cabinafotoring"
           />
           <a
             href="#"
